@@ -68,6 +68,9 @@ private fun saveBeginTime(context: Context, nowWeek: Int): Long {
     calendar.set(Calendar.WEEK_OF_YEAR, targetWeek)
     val hash_day = (calendar.get(Calendar.DAY_OF_WEEK) + 5) % 7
     calendar.set(Calendar.DAY_OF_YEAR, calendar.get(Calendar.DAY_OF_YEAR) - hash_day)
+    calendar.set(Calendar.HOUR_OF_DAY, 0)
+    calendar.set(Calendar.MINUTE, 0)
+    calendar.set(Calendar.MILLISECOND, 0)
     context.defaultSharedPreferences.editor {
         putLong(beginTimeShareName, calendar.time.time)
     }
