@@ -12,18 +12,20 @@ import android.os.Environment
 import android.support.v7.app.AlertDialog
 import android.support.v7.app.AppCompatActivity
 import android.widget.Toast
+import com.google.gson.Gson
 import com.tbruyelle.rxpermissions2.RxPermissions
 import com.tencent.bugly.crashreport.CrashReport
 import com.zia.widget.R
 import com.zia.widget.bean.Config
-import com.zia.widget.net.ApiGenerator
-import com.zia.widget.net.ApiService
+import com.zia.widget.bean.Course
+import com.zia.widget.net.Service
 import com.zia.widget.util.*
 import com.zia.widget.util.downlaodUtil.DownloadRunnable
 import com.zia.widget.widget.little.LittleTransWidget
 import com.zia.widget.widget.little.LittleWidget
 import com.zia.widget.widget.normal.NormalWidget
 import kotlinx.android.synthetic.main.widget_activity_main.*
+import okhttp3.*
 import java.io.File
 import java.io.IOException
 
@@ -33,9 +35,6 @@ import java.io.IOException
  * 小部件独立模块的界面，用于登录，验证
  */
 class MainActivity : AppCompatActivity() {
-
-    private val redrock: ApiService by lazy { ApiGenerator.getRedrockService(ApiService::class.java) }
-    private val zia: ApiService by lazy { ApiGenerator.getZiaService(ApiService::class.java) }
 
     private lateinit var rxPermissions: RxPermissions
 
@@ -49,82 +48,96 @@ class MainActivity : AppCompatActivity() {
 
         widget_main_version.text = versionName
 
-        widget_main_configBt.setOnClickListener { _ ->
-            startActivity(Intent(this@MainActivity, ConfigActivity::class.java))
-        }
+        checkVersion()
 
-        widget_main_joinGroup.setOnClickListener {
-            if (!joinQQGroup("DXvamN9Ox1Kthaab1N_0w7s5N3aUYVIf")) {
-                val clipboard = getSystemService(CLIPBOARD_SERVICE) as ClipboardManager
-                val data = ClipData.newPlainText("QQ Group", "570919844")
-                clipboard.primaryClip = data
-                Toast.makeText(this, "抱歉，由于您未安装手机QQ或版本不支持，无法跳转至掌邮bug反馈群。" + "已将群号复制至您的手机剪贴板，请您手动添加",
-                        Toast.LENGTH_LONG).show()
-            }
-        }
+        widget_main_configBt.setOnClickListener { _ -> startActivity(Intent(this@MainActivity, ConfigActivity::class.java)) }
 
-        Thread(Runnable {
-            //版本升级控制
-            try {
-                val config = zia.getVersionConfig().execute().body()!!
+        widget_main_joinGroup.setOnClickListener { joinQQ() }
+
+        initViews()
+    }
+
+    private fun checkVersion() {
+        val versionRequest = Request.Builder()
+                .url("http://zzzia.net:8080/version/get")
+                .post(FormBody.Builder().add("key", "widget").build())
+                .build()
+
+        showWaitDialog()
+        Service.okHttpClient.newCall(versionRequest).enqueue(object : Callback {
+            override fun onFailure(call: Call, e: IOException) {
                 runOnUiThread {
-                    if (config.version > version) {
-                        showUpdateDialog(config)
-                    }
-                    if (config.able != "true") {
+                    hideWaitDialog()
+                    e.printStackTrace()
+                    showErrorDialog("连接服务器失败，请检查网络")
+                }
+            }
+
+            override fun onResponse(call: Call, response: Response) {
+                val json = response.body()?.string()
+
+                runOnUiThread {
+                    hideWaitDialog()
+                    val config = Gson().fromJson<Config>(json, Config::class.java)
+                    if (config == null || config.able != "true") {
                         //服务器认证失败，无法访问
                         showErrorDialog("由于某些原因，软件不再提供使用")
-                    } else {
-                        initViews()
+                    } else if (config.version > version) {
+                        showUpdateDialog(config)
                     }
                 }
-            } catch (e: IOException) {
-                e.printStackTrace()
-                runOnUiThread {
-                    showErrorDialog("网络错误，无法校验服务器，请稍后再试")
-                }
             }
-        }).start()
+
+        })
     }
 
     private fun initViews() {
         widget_main_loginBt.setOnClickListener { _ ->
+
             val stuNum = widget_main_stuNumEt.text.toString()
 
-            if (stuNum.isEmpty()) {
+            if (stuNum.isEmpty() || stuNum.length < 4) {
                 Toast.makeText(this, "请输入学号", Toast.LENGTH_SHORT).show()
                 return@setOnClickListener
             }
 
-            Thread(Runnable {
-                try {
-                    val data = redrock.getCourse(stuNum).execute().body()
+            val courseRequest = Request.Builder()
+                    .url("https://wx.idsbllp.cn/api/kebiao")
+                    .post(FormBody.Builder().add("stuNum", stuNum).build())
+                    .build()
 
-                    if (data == null || data.isEmpty()) {
-                        runOnUiThread {
-                            Toast.makeText(this, "更新失败，请稍后尝试", Toast.LENGTH_SHORT).show()
-                        }
-                        return@Runnable
-                    }
+            showWaitDialog()
 
-                    defaultSharedPreferences.editor {
-                        putString(WIDGET_COURSE, data)
-                        putBoolean(SP_WIDGET_NEED_FRESH, true)
-                    }
-
+            Service.okHttpClient.newCall(courseRequest).enqueue(object : Callback {
+                override fun onFailure(call: Call, e: IOException) {
                     runOnUiThread {
+                        hideWaitDialog()
+                        e.printStackTrace()
+                        Toast.makeText(this@MainActivity, "网络出错", Toast.LENGTH_SHORT).show()
+                    }
+                }
+
+                override fun onResponse(call: Call, response: Response) {
+                    val json = response.body()?.string()
+                    runOnUiThread {
+                        hideWaitDialog()
+                        val course = Gson().fromJson<Course>(json, Course::class.java)
+                        if (course?.data == null) {
+                            Toast.makeText(this@MainActivity, "服务器没有课表...", Toast.LENGTH_SHORT).show()
+                            return@runOnUiThread
+                        }
+                        defaultSharedPreferences.editor {
+                            putString(WIDGET_COURSE, json)
+                            putBoolean(SP_WIDGET_NEED_FRESH, true)
+                        }
                         LittleTransWidget().refresh(this@MainActivity)
                         LittleWidget().refresh(this@MainActivity)
                         NormalWidget().fresh(this@MainActivity, 0)
-                        Toast.makeText(this, "更新成功", Toast.LENGTH_SHORT).show()
-                    }
-                } catch (e: IOException) {
-                    e.printStackTrace()
-                    runOnUiThread {
-                        Toast.makeText(this, "网络错误", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(this@MainActivity, "更新成功", Toast.LENGTH_SHORT).show()
                     }
                 }
-            }).start()
+
+            })
         }
     }
 
@@ -149,6 +162,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun downloadApk(url: String) {
+
+
         val dialog = ProgressDialog(this@MainActivity)
         dialog.setCancelable(false)
         dialog.progress = 0
@@ -186,9 +201,29 @@ class MainActivity : AppCompatActivity() {
         AlertDialog.Builder(this)
                 .setTitle("提示")
                 .setMessage(massage)
-                .setPositiveButton("确定") { _, _ -> android.os.Process.killProcess(android.os.Process.myPid()) }
+                .setPositiveButton("确定") { _, _ -> finish() }
                 .setCancelable(false)
                 .show()
+    }
+
+    private val waitDialog by lazy {
+        AlertDialog.Builder(this@MainActivity)
+                .setTitle("请稍等")
+                .setMessage("正在连接服务器")
+                .setCancelable(false)
+                .create()
+    }
+
+    private fun showWaitDialog() {
+        if (!waitDialog.isShowing) {
+            waitDialog.show()
+        }
+    }
+
+    private fun hideWaitDialog() {
+        if (waitDialog.isShowing) {
+            waitDialog.dismiss()
+        }
     }
 
     private fun joinQQGroup(key: String): Boolean {
@@ -201,6 +236,16 @@ class MainActivity : AppCompatActivity() {
         } catch (e: Exception) {
             // 未安装手Q或安装的版本不支持
             false
+        }
+    }
+
+    private fun joinQQ() {
+        if (!joinQQGroup("DXvamN9Ox1Kthaab1N_0w7s5N3aUYVIf")) {
+            val clipboard = getSystemService(CLIPBOARD_SERVICE) as ClipboardManager
+            val data = ClipData.newPlainText("QQ Group", "570919844")
+            clipboard.primaryClip = data
+            Toast.makeText(this, "抱歉，由于您未安装手机QQ或版本不支持，无法跳转至掌邮bug反馈群。" + "已将群号复制至您的手机剪贴板，请您手动添加",
+                    Toast.LENGTH_LONG).show()
         }
     }
 }
