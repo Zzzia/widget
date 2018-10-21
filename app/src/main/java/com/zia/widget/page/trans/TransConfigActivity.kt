@@ -25,8 +25,7 @@ import kotlinx.android.synthetic.main.widget_activity_trans_config.*
 class TransConfigActivity : AppCompatActivity() {
 
     private val userConfig by lazy {
-        val config = TransConfig.getUserConfig(this@TransConfigActivity)
-        config
+        TransConfig.getUserConfig(this@TransConfigActivity)
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -54,10 +53,6 @@ class TransConfigActivity : AppCompatActivity() {
             val timeSize = widget_config_trans_timeSb.progress
             val courseSize = widget_config_trans_courseSb.progress
             val roomSize = widget_config_trans_roomSb.progress
-//            if (timeSize < 12 || courseSize < 12 || roomSize < 12) {
-//                Toast.makeText(this@TransConfigActivity, "字体过小，请更改", Toast.LENGTH_SHORT).show()
-//                return@setOnClickListener
-//            }
 
             val timeColor = widget_config_trans_timeColorEt.text.toString().replace(Regex("[^(#A-Fa-f0-9)]"), "")
             val courseColor = widget_config_trans_courseColorEt.text.toString().replace(Regex("[^(#A-Fa-f0-9)]"), "")
@@ -118,7 +113,7 @@ class TransConfigActivity : AppCompatActivity() {
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
                 if (s == null) return
                 s.replace(Regex("[^(a-fA-F0-9#)]"), "")
-                if (s.first() == '#' && (s.length == 7 || s.length == 9)) {
+                if (!s.isEmpty() && s.first() == '#' && (s.length == 7 || s.length == 9)) {
                     try {
                         val color = Color.parseColor(s.toString())
                         colorView.setBackgroundColor(color)
@@ -168,11 +163,6 @@ class TransConfigActivity : AppCompatActivity() {
     }
 
     private fun setSeekBar(config: TransConfig) {
-//        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-//            widget_config_trans_courseSb.min = 12
-//            widget_config_trans_roomSb.min = 12
-//            widget_config_trans_timeSb.min = 12
-//        }
 
         widget_config_trans_courseSb.max = 50
         widget_config_trans_courseSb.progress = config.courseTextSize
