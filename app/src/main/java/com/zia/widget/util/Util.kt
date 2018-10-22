@@ -105,6 +105,19 @@ fun getHashLesson(context: Context, shareName: String): Int {
     return context.defaultSharedPreferences.getInt(shareName, 0)
 }
 
+
+private const val SP_DayOffset = "dayOffset"
+//天数偏移量，用于LittleWidget切换明天课程
+fun saveDayOffset(context: Context, offset: Int) {
+    context.defaultSharedPreferences.editor {
+        putInt(SP_DayOffset, offset)
+    }
+}
+fun getDayOffset(context: Context): Int {
+    return context.defaultSharedPreferences.getInt(SP_DayOffset, 0)
+}
+
+
 fun isNight(): Boolean {
     val calendar = Calendar.getInstance()
     return calendar.get(Calendar.HOUR_OF_DAY) > 19
