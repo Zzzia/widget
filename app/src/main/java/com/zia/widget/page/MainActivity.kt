@@ -50,7 +50,7 @@ class MainActivity : AppCompatActivity() {
 
         checkVersion()
 
-        widget_main_configBt.setOnClickListener { _ -> startActivity(Intent(this@MainActivity, ConfigActivity::class.java)) }
+        widget_main_configBt.setOnClickListener { startActivity(Intent(this@MainActivity, ConfigActivity::class.java)) }
 
         widget_main_joinGroup.setOnClickListener { joinQQ() }
 
@@ -92,7 +92,11 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun initViews() {
-        widget_main_loginBt.setOnClickListener { _ ->
+        //填充学号记录
+        val stuNumHistory = defaultSharedPreferences.getString(SP_STUNUM,"")
+        widget_main_stuNumEt.setText(stuNumHistory)
+
+        widget_main_loginBt.setOnClickListener {
 
             val stuNum = widget_main_stuNumEt.text.toString()
 
@@ -119,16 +123,25 @@ class MainActivity : AppCompatActivity() {
 
                 override fun onResponse(call: Call, response: Response) {
                     val json = response.body()?.string()
+                    val course: Course
+                    try {
+                        //服务器数据有问题时json解析会出错
+                        course = Gson().fromJson<Course>(json, Course::class.java)
+                    } catch (e: java.lang.Exception) {
+                        Toast.makeText(this@MainActivity, "服务器数据出了点问题..", Toast.LENGTH_SHORT).show()
+                        return
+                    }
+
                     runOnUiThread {
                         hideWaitDialog()
-                        val course = Gson().fromJson<Course>(json, Course::class.java)
-                        if (course?.data == null) {
+                        if (course.data == null) {
                             Toast.makeText(this@MainActivity, "服务器没有课表...", Toast.LENGTH_SHORT).show()
                             return@runOnUiThread
                         }
                         defaultSharedPreferences.editor {
                             putString(WIDGET_COURSE, json)
                             putBoolean(SP_WIDGET_NEED_FRESH, true)
+                            putString(SP_STUNUM, stuNum)
                         }
                         LittleTransWidget().refresh(this@MainActivity)
                         LittleWidget().refresh(this@MainActivity)
@@ -162,8 +175,6 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun downloadApk(url: String) {
-
-
         val dialog = ProgressDialog(this@MainActivity)
         dialog.setCancelable(false)
         dialog.progress = 0

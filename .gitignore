@@ -1,7 +1,3 @@
-/build
-build/*
-release/*
-/release/*
 *.iml
 .gradle
 /local.properties
@@ -12,5 +8,6 @@ release/*
 /.idea/modules.xml
 /.idea/workspace.xml
 .DS_Store
+/build
 /captures
 .externalNativeBuild

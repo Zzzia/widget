@@ -202,6 +202,7 @@ fun filterClassRoom(classRoom: String): String {
 const val WIDGET_COURSE = "widget_kb"
 
 const val SP_WIDGET_NEED_FRESH = "widget_need_fresh"
+const val SP_STUNUM = "student_number"
 
 val Context.defaultSharedPreferences get() = sharedPreferences("share_data")
 
