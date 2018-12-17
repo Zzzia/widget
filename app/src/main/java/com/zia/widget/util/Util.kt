@@ -44,8 +44,8 @@ fun getCourseByCalendar(context: Context, calendar: Calendar): ArrayList<Course.
     /*
     * 转换表，老外从周日开始计数,orz
     * 7 1 2 3 4 5 6 老外
-    * 1 2 3 4 5 6 7 返回
-    * 6 0 1 2 3 4 5 结果(hash_day)
+    * 1 2 3 4 5 6 7 Calendar.DAY_OF_WEEK
+    * 6 0 1 2 3 4 5 需要的结果(hash_day)
     * */
     val hash_day = (calendar.get(Calendar.DAY_OF_WEEK) + 5) % 7
 
@@ -203,6 +203,8 @@ const val WIDGET_COURSE = "widget_kb"
 
 const val SP_WIDGET_NEED_FRESH = "widget_need_fresh"
 const val SP_STUNUM = "student_number"
+const val SP_COURSE_UPDATE_TIME = "course_update_time"
+const val SP_IS_AUTO_UPDATE = "is_auto_update"
 
 val Context.defaultSharedPreferences get() = sharedPreferences("share_data")
 

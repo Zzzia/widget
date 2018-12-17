@@ -48,6 +48,7 @@ abstract class BaseLittleWidget : AppWidgetProvider() {
 
     override fun onUpdate(context: Context, appWidgetManager: AppWidgetManager, appWidgetIds: IntArray) {
         super.onUpdate(context, appWidgetManager, appWidgetIds)
+        autoFreshCourse(context)
         refresh(context)
     }
 

@@ -1,16 +1,20 @@
 package com.zia.widget.page
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.app.ProgressDialog
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Intent
+import android.content.pm.ShortcutInfo
+import android.graphics.drawable.Icon
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.Environment
 import android.support.v7.app.AlertDialog
 import android.support.v7.app.AppCompatActivity
+import android.util.Log
 import android.widget.Toast
 import com.google.gson.Gson
 import com.tbruyelle.rxpermissions2.RxPermissions
@@ -38,15 +42,18 @@ class MainActivity : AppCompatActivity() {
 
     private lateinit var rxPermissions: RxPermissions
 
+    @SuppressLint("SetTextI18n")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.widget_activity_main)
 
         CrashReport.initCrashReport(applicationContext)
 
+        addShortcut()
+
         rxPermissions = RxPermissions(this@MainActivity)
 
-        widget_main_version.text = versionName
+        widget_main_version.text = "v${Version.packageName(this)}"
 
         checkVersion()
 
@@ -55,6 +62,12 @@ class MainActivity : AppCompatActivity() {
         widget_main_joinGroup.setOnClickListener { joinQQ() }
 
         initViews()
+
+        val needFresh = intent.getBooleanExtra("needFresh", false)
+        if (needFresh) {
+            Toast.makeText(this, "正在更新", Toast.LENGTH_SHORT).show()
+            refresh(defaultSharedPreferences.getString(SP_STUNUM, ""))
+        }
     }
 
     private fun checkVersion() {
@@ -82,7 +95,7 @@ class MainActivity : AppCompatActivity() {
                     if (config == null || config.able != "true") {
                         //服务器认证失败，无法访问
                         showErrorDialog("由于某些原因，软件不再提供使用")
-                    } else if (config.version > version) {
+                    } else if (config.version > Version.packageCode(this@MainActivity)) {
                         showUpdateDialog(config)
                     }
                 }
@@ -93,9 +106,30 @@ class MainActivity : AppCompatActivity() {
 
     private fun initViews() {
         //填充学号记录
-        val stuNumHistory = defaultSharedPreferences.getString(SP_STUNUM,"")
+        val stuNumHistory = defaultSharedPreferences.getString(SP_STUNUM, "")
         widget_main_stuNumEt.setText(stuNumHistory)
+        //填充自动更新记录
+        val isAutoUpdate = defaultSharedPreferences.getBoolean(SP_IS_AUTO_UPDATE, false)
+        widget_main_autoUpdate_check.isChecked = isAutoUpdate
 
+        widget_main_autoUpdate_check.setOnTouchListener { _, _ ->
+            return@setOnTouchListener false
+        }
+
+        //自动更新点击事件
+        widget_main_autoUpdate_layout.setOnClickListener {
+            val checked = !widget_main_autoUpdate_check.isChecked
+            widget_main_autoUpdate_check.isChecked = checked
+            Log.d(javaClass.simpleName, "checked:$checked")
+            defaultSharedPreferences.editor {
+                putBoolean(SP_IS_AUTO_UPDATE, checked)
+            }
+            if (checked) {
+                autoFreshCourse(this)
+            }
+        }
+
+        //刷新课表点击事件
         widget_main_loginBt.setOnClickListener {
 
             val stuNum = widget_main_stuNumEt.text.toString()
@@ -105,53 +139,61 @@ class MainActivity : AppCompatActivity() {
                 return@setOnClickListener
             }
 
-            val courseRequest = Request.Builder()
-                    .url("https://wx.idsbllp.cn/api/kebiao")
-                    .post(FormBody.Builder().add("stuNum", stuNum).build())
-                    .build()
-
-            showWaitDialog()
-
-            Service.okHttpClient.newCall(courseRequest).enqueue(object : Callback {
-                override fun onFailure(call: Call, e: IOException) {
-                    runOnUiThread {
-                        hideWaitDialog()
-                        e.printStackTrace()
-                        Toast.makeText(this@MainActivity, "网络出错", Toast.LENGTH_SHORT).show()
-                    }
-                }
-
-                override fun onResponse(call: Call, response: Response) {
-                    val json = response.body()?.string()
-                    val course: Course
-                    try {
-                        //服务器数据有问题时json解析会出错
-                        course = Gson().fromJson<Course>(json, Course::class.java)
-                    } catch (e: java.lang.Exception) {
-                        Toast.makeText(this@MainActivity, "服务器数据出了点问题..", Toast.LENGTH_SHORT).show()
-                        return
-                    }
-
-                    runOnUiThread {
-                        hideWaitDialog()
-                        if (course.data == null) {
-                            Toast.makeText(this@MainActivity, "服务器没有课表...", Toast.LENGTH_SHORT).show()
-                            return@runOnUiThread
-                        }
-                        defaultSharedPreferences.editor {
-                            putString(WIDGET_COURSE, json)
-                            putBoolean(SP_WIDGET_NEED_FRESH, true)
-                            putString(SP_STUNUM, stuNum)
-                        }
-                        LittleTransWidget().refresh(this@MainActivity)
-                        LittleWidget().refresh(this@MainActivity)
-                        NormalWidget().fresh(this@MainActivity, 0)
-                        Toast.makeText(this@MainActivity, "更新成功", Toast.LENGTH_SHORT).show()
-                    }
-                }
-
-            })
+            refresh(stuNum)
         }
+    }
+
+    private fun refresh(stuNum: String?) {
+        if (stuNum == null || stuNum.isEmpty()) {
+            Toast.makeText(this, "还没有填写账号", Toast.LENGTH_SHORT).show()
+            return
+        }
+        val courseRequest = Request.Builder()
+                .url("https://wx.idsbllp.cn/api/kebiao")
+                .post(FormBody.Builder().add("stuNum", stuNum).build())
+                .build()
+
+        showWaitDialog()
+
+        Service.okHttpClient.newCall(courseRequest).enqueue(object : Callback {
+            override fun onFailure(call: Call, e: IOException) {
+                runOnUiThread {
+                    hideWaitDialog()
+                    e.printStackTrace()
+                    Toast.makeText(this@MainActivity, "网络出错", Toast.LENGTH_SHORT).show()
+                }
+            }
+
+            override fun onResponse(call: Call, response: Response) {
+                val json = response.body()?.string()
+                val course: Course
+                try {
+                    //服务器数据有问题时json解析会出错
+                    course = Gson().fromJson<Course>(json, Course::class.java)
+                } catch (e: java.lang.Exception) {
+                    Toast.makeText(this@MainActivity, "服务器数据出了点问题..", Toast.LENGTH_SHORT).show()
+                    return
+                }
+
+                runOnUiThread {
+                    hideWaitDialog()
+                    if (course.data == null) {
+                        Toast.makeText(this@MainActivity, "服务器没有课表...", Toast.LENGTH_SHORT).show()
+                        return@runOnUiThread
+                    }
+                    defaultSharedPreferences.editor {
+                        putString(WIDGET_COURSE, json)
+                        putBoolean(SP_WIDGET_NEED_FRESH, true)
+                        putString(SP_STUNUM, stuNum)
+                    }
+                    LittleTransWidget().refresh(this@MainActivity)
+                    LittleWidget().refresh(this@MainActivity)
+                    NormalWidget().fresh(this@MainActivity, 0)
+                    Toast.makeText(this@MainActivity, "更新成功", Toast.LENGTH_SHORT).show()
+                }
+            }
+
+        })
     }
 
     private fun showUpdateDialog(config: Config) {
@@ -257,6 +299,22 @@ class MainActivity : AppCompatActivity() {
             clipboard.primaryClip = data
             Toast.makeText(this, "抱歉，由于您未安装手机QQ或版本不支持，无法跳转至掌邮bug反馈群。" + "已将群号复制至您的手机剪贴板，请您手动添加",
                     Toast.LENGTH_LONG).show()
+        }
+    }
+
+    private fun addShortcut() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N_MR1) {
+            val intent = Intent(this, MainActivity::class.java)
+            intent.action = Intent.ACTION_VIEW
+            intent.putExtra("needFresh", true)
+            val shortcut = ShortcutInfo.Builder(this, "update")
+                    .setShortLabel("刷新课表")
+                    .setLongLabel("刷新课表")
+                    .setRank(1)
+                    .setIcon(Icon.createWithResource(this, R.drawable.head))
+                    .setIntent(intent)
+                    .build()
+            ShortcutsUtil.addShortcut(this, shortcut)
         }
     }
 }
