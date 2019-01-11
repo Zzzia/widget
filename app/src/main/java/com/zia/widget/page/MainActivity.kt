@@ -14,7 +14,6 @@ import android.os.Bundle
 import android.os.Environment
 import android.support.v7.app.AlertDialog
 import android.support.v7.app.AppCompatActivity
-import android.util.Log
 import android.widget.Toast
 import com.google.gson.Gson
 import com.tbruyelle.rxpermissions2.RxPermissions
@@ -68,6 +67,11 @@ class MainActivity : AppCompatActivity() {
             Toast.makeText(this, "正在更新", Toast.LENGTH_SHORT).show()
             refresh(defaultSharedPreferences.getString(SP_STUNUM, ""))
         }
+
+        //修复自动更新bug，设置为不自动更新
+        defaultSharedPreferences.editor {
+            putBoolean(SP_IS_AUTO_UPDATE, false)
+        }
     }
 
     private fun checkVersion() {
@@ -109,25 +113,25 @@ class MainActivity : AppCompatActivity() {
         val stuNumHistory = defaultSharedPreferences.getString(SP_STUNUM, "")
         widget_main_stuNumEt.setText(stuNumHistory)
         //填充自动更新记录
-        val isAutoUpdate = defaultSharedPreferences.getBoolean(SP_IS_AUTO_UPDATE, false)
-        widget_main_autoUpdate_check.isChecked = isAutoUpdate
-
-        widget_main_autoUpdate_check.setOnTouchListener { _, _ ->
-            return@setOnTouchListener false
-        }
+//        val isAutoUpdate = defaultSharedPreferences.getBoolean(SP_IS_AUTO_UPDATE, false)
+//        widget_main_autoUpdate_check.isChecked = isAutoUpdate
+//
+//        widget_main_autoUpdate_check.setOnTouchListener { _, _ ->
+//            return@setOnTouchListener false
+//        }
 
         //自动更新点击事件
-        widget_main_autoUpdate_layout.setOnClickListener {
-            val checked = !widget_main_autoUpdate_check.isChecked
-            widget_main_autoUpdate_check.isChecked = checked
-            Log.d(javaClass.simpleName, "checked:$checked")
-            defaultSharedPreferences.editor {
-                putBoolean(SP_IS_AUTO_UPDATE, checked)
-            }
-            if (checked) {
-                autoFreshCourse(this)
-            }
-        }
+//        widget_main_autoUpdate_layout.setOnClickListener {
+//            val checked = !widget_main_autoUpdate_check.isChecked
+//            widget_main_autoUpdate_check.isChecked = checked
+//            Log.d(javaClass.simpleName, "checked:$checked")
+//            defaultSharedPreferences.editor {
+//                putBoolean(SP_IS_AUTO_UPDATE, checked)
+//            }
+//            if (checked) {
+//                autoFreshCourse(this)
+//            }
+//        }
 
         //刷新课表点击事件
         widget_main_loginBt.setOnClickListener {
@@ -311,7 +315,7 @@ class MainActivity : AppCompatActivity() {
                     .setShortLabel("刷新课表")
                     .setLongLabel("刷新课表")
                     .setRank(1)
-                    .setIcon(Icon.createWithResource(this, R.drawable.head))
+                    .setIcon(Icon.createWithResource(this, R.mipmap.ic_launcher_round))
                     .setIntent(intent)
                     .build()
             ShortcutsUtil.addShortcut(this, shortcut)

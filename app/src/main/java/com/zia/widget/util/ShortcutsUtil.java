@@ -3,6 +3,7 @@ package com.zia.widget.util;
 import android.content.Context;
 import android.content.pm.ShortcutInfo;
 import android.content.pm.ShortcutManager;
+import android.widget.Toast;
 
 import java.util.Collections;
 import java.util.List;
@@ -20,15 +21,29 @@ public class ShortcutsUtil {
      */
     public static void removeShortcut(Context context, String id) {
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N_MR1) {
-            ShortcutManager shortcutManager = context.getSystemService(ShortcutManager.class);
-            shortcutManager.removeDynamicShortcuts(Collections.singletonList(id));
+            try {
+                ShortcutManager shortcutManager = context.getSystemService(ShortcutManager.class);
+                shortcutManager.removeDynamicShortcuts(Collections.singletonList(id));
+            } catch (Exception e) {
+                e.printStackTrace();
+                if (context != null) {
+                    Toast.makeText(context, e.getMessage(), Toast.LENGTH_SHORT).show();
+                }
+            }
         }
     }
 
     public static void setShortcuts(Context context, List<ShortcutInfo> infos) {
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N_MR1) {
-            ShortcutManager shortcutManager = context.getSystemService(ShortcutManager.class);
-            shortcutManager.setDynamicShortcuts(infos);
+            try {
+                ShortcutManager shortcutManager = context.getSystemService(ShortcutManager.class);
+                shortcutManager.setDynamicShortcuts(infos);
+            } catch (Exception e) {
+                e.printStackTrace();
+                if (context != null) {
+                    Toast.makeText(context, e.getMessage(), Toast.LENGTH_SHORT).show();
+                }
+            }
         }
     }
 
@@ -39,9 +54,16 @@ public class ShortcutsUtil {
      * @param shortcutInfo
      */
     public static void addShortcut(Context context, ShortcutInfo shortcutInfo) {
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N_MR1) {
-            ShortcutManager shortcutManager = context.getSystemService(ShortcutManager.class);
-            shortcutManager.addDynamicShortcuts(Collections.singletonList(shortcutInfo));
+        try {
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N_MR1) {
+                ShortcutManager shortcutManager = context.getSystemService(ShortcutManager.class);
+                shortcutManager.addDynamicShortcuts(Collections.singletonList(shortcutInfo));
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            if (context != null) {
+                Toast.makeText(context, e.getMessage(), Toast.LENGTH_SHORT).show();
+            }
         }
     }
 
@@ -53,17 +75,25 @@ public class ShortcutsUtil {
      * @param index
      */
     public static void addShortcut(Context context, ShortcutInfo shortcutInfo, int index) {
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N_MR1) {
-            ShortcutManager shortcutManager = context.getSystemService(ShortcutManager.class);
-            List<ShortcutInfo> dynamicShortcuts = shortcutManager.getDynamicShortcuts();
-            for (ShortcutInfo dynamicShortcut : dynamicShortcuts) {
-                if (dynamicShortcut.getId().equals(shortcutInfo.getId())) {
-                    return;
+        try {
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N_MR1) {
+                ShortcutManager shortcutManager = context.getSystemService(ShortcutManager.class);
+                List<ShortcutInfo> dynamicShortcuts = shortcutManager.getDynamicShortcuts();
+                for (ShortcutInfo dynamicShortcut : dynamicShortcuts) {
+                    if (dynamicShortcut.getId().equals(shortcutInfo.getId())) {
+                        return;
+                    }
                 }
+                dynamicShortcuts.add(index, shortcutInfo);
+                setShortcuts(context, dynamicShortcuts);
             }
-            dynamicShortcuts.add(index, shortcutInfo);
-            setShortcuts(context, dynamicShortcuts);
+        } catch (Exception e) {
+            e.printStackTrace();
+            if (context != null) {
+                Toast.makeText(context, e.getMessage(), Toast.LENGTH_SHORT).show();
+            }
         }
+
     }
 
 }
